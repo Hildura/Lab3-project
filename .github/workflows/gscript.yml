@@ -1,0 +1,71 @@
+name: Label & comment issues and PR events
+
+on:
+  issues:
+    types:
+      - reopened
+      - opened
+      - closed
+  pull_request:
+    types:
+      - opened
+
+jobs:
+  label_issues:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    if: github.event_name == 'issues' && (github.event.action == 'opened' || github.event.action == 'reopened')
+    steps:
+      - name: Attach label to issues
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ["issue", "fix"]
+            })
+      - name: Comment on new issue
+        uses: peter-evans/create-or-update-comment@v1
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          body: |
+            Thanks for opening this issue! We'll take a look as soon as possible.
+
+  comment_issue_closed:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    if: github.event_name == 'issues' && github.event.action == 'closed'
+    steps:
+      - name: Comment on closed issue
+        uses: peter-evans/create-or-update-comment@v1
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          body: |
+            This issue has been closed. If you have any further questions or concerns, please feel free to reopen the issue or contact us.
+
+  comment_first_pr:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    if: github.event_name == 'pull_request' && github.event.action == 'opened'
+    steps:
+      - name: Check if this is the user's first pull request
+        id: first_pr
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const query = `is:pr author:${context.payload.pull_request.user.login} repo:${context.repo.owner}/${context.repo.repo}`;
+            const { data } = await github.rest.search.issuesAndPullRequests({ q: query });
+            // Palautetaan pull requestien määrä käyttäjältä.
+            return { count: data.total_count };
+      - name: Comment on first pull request
+        if: steps.first_pr.outputs.result == '{"count":1}'
+        uses: peter-evans/create-or-update-comment@v1
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            Onneksi olkoon tämä on ensimmäinen pull requestisi! Arvostamme osallistumistanne ja tarkastamme requestisi mahdollisimman nopeasti.
