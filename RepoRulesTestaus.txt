@@ -1,0 +1,1 @@
+Testataanpas toimiiko Repo Rules. Eli Yhden täytyy käydä katselmoimassa Pull Requesti
